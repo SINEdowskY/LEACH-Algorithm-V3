@@ -3,6 +3,7 @@ import networkx as nx
 import random
 import matplotlib.pyplot as plt
 import math
+import numpy as np
 
 
 class Environment:
@@ -11,8 +12,13 @@ class Environment:
         self.rounds_amount = rounds_amount
         self.graph = nx.Graph()
         self.graph_df = self.generate_df()
+        self.dead = []
+        self.energy = []
 
     def generate_df(self):
+        """
+        method that generate DataFramee which contains network data
+        """
         data = []
         for i in range(self.nodes_amount):
             node = f"nodes_{i}"
@@ -52,16 +58,18 @@ class Environment:
                 number = (number * 2) + 1
                 return number
 
-        alive_nodes = self.graph_df.loc[(self.graph_df['is_dead'] == False)
-         & (self.graph_df['energy'] > 0)]
-        random_amount = randomOddNumber(3, 9)
-        sample = random.sample(range(0,len(alive_nodes)), random_amount)
+        alive_nodes = self.graph_df.loc[(self.graph_df['is_dead'] == False)]
+        random_amount = randomOddNumber(1, 9)
+        while random_amount > len(alive_nodes.index.to_list()) and len(alive_nodes.index.to_list()) != 0:
+            random_amount = randomOddNumber(1, 9)
+        sample = random.sample(alive_nodes.index.to_list(), random_amount)
+
         
         for el in sample:
             alive_nodes.loc[el, ['is_ch']] = True
             alive_nodes.loc[el, ['color']] = "Red"
         
-        self.graph_df.loc[self.graph_df['is_dead'] == False] = alive_nodes
+        self.graph_df.loc[(self.graph_df['is_dead'] == False)] = alive_nodes
         print('selected cluster heads')
 
     def antenna_edges(self):
@@ -103,8 +111,9 @@ class Environment:
                 index = not_chs.index[not_chs['node'] == top[0]].tolist()[0]
                 not_chs.loc[index, 'is_taken'] = True
                 not_chs.loc[index, 'ch'] = ch_node
-            self.graph_df.loc[(self.graph_df['is_ch'] == False) & (self.graph_df['is_taken'] == False)] = not_chs
-        print('clustered')          
+            self.graph_df.loc[(self.graph_df['is_ch'] == False) & (self.graph_df['is_taken'] == False) & (self.graph_df['is_dead'] == False)] = not_chs
+        print('clustered')
+
     
     def energy_consumption(self):
         ch = self.graph_df.loc[self.graph_df['is_ch'] == True]
@@ -115,7 +124,7 @@ class Environment:
             distance_ant = math.sqrt(
                     (ch_pos[0]-antennna_pos[0])**2 + (ch_pos[1] - antennna_pos[1])**2
                 )
-            ch_power_consum = len(cluster_children)*distance_ant
+            ch_power_consum = len(cluster_children)*distance_ant + distance_ant
             index = self.graph_df.index[self.graph_df['node'] == ch_node].tolist()[0]
             self.graph_df.loc[index, ['energy']] = self.graph_df.loc[index, ['energy']] - ch_power_consum
 
@@ -137,7 +146,6 @@ class Environment:
         indexes = self.graph_df.index[
             (self.graph_df['energy'] <= 0.0) & (self.graph_df['is_dead']==False)
             ].tolist()
-        print(indexes)
 
         for index in indexes:
             self.graph_df.loc[index, ['is_dead']] = True
@@ -147,33 +155,77 @@ class Environment:
             self.graph_df.loc[index, ['is_ch']] = False
             print("dead: update isch")
             self.graph_df.loc[index, ['ch']] = ''
+            self.graph_df.loc[index, ['energy']] = 0.0
             print("dead: update ch")
+            self.graph_df.loc[index, ['is_taken']] = False
         print('dead updated')
 
     def new_state(self):
-        indexes = self.graph_df.index[(self.graph_df['is_ch'] == True) 
-        | (self.graph_df['ch'] != "")].tolist()
+        indexes = self.graph_df.index[
+            ((self.graph_df['is_ch'] == True) | (self.graph_df['ch'] != ""))
+            & (self.graph_df['is_dead'] == False)
+        ].tolist()
 
         for index in indexes:
             self.graph_df.loc[index, 'color'] = "Green"
             self.graph_df.loc[index, 'is_ch'] = False
             self.graph_df.loc[index, 'is_taken'] = False
             self.graph_df.loc[index, 'ch'] = ''
-        print(self.graph_df)
         print('clean_state')
-        
+    
+    def not_all_dead(self):
+        not_dead = self.graph_df.loc[self.graph_df['is_dead'] == False]
+        if len(not_dead) != 0:
+            return True
+        else:
+            return False
+    
+    def get_sum_of_dead_nodes(self):
+        dead = len(self.graph_df.loc[self.graph_df['is_dead'] == True])
+        self.dead.append(dead)
+    
+    def get_sum_of_energy(self):
+        energy = self.graph_df['energy'].sum()
+        self.energy.append(energy-300000.0)
+    
+    def draw_tests_plot(self):
+        fig, axs = plt.subplots(2)
+        x = np.linspace(0, self.rounds_amount, self.rounds_amount)
+        print(x)
+        y_dead = self.dead
+        print(y_dead)
+        y_energy = self.energy
+        print(y_energy)
+        axs[0].set_title('amount of dead nodes per round')
+        axs[0].set_xlabel("amount of rounds")
+        axs[0].set_ylabel("amount of dead nodes")
+        axs[0].plot(x, y_dead)
+
+        axs[1].set_title('amount of total energy per round')
+        axs[1].set_xlabel("amount of rounds")
+        axs[1].set_ylabel("amount of total energy")
+        axs[1].plot(x, y_energy)
+
+        fig.tight_layout()
+        return fig
+
     def draw_graph(self):
         self.graph = nx.Graph()
-        self.new_state()
         self.dead_update()
+        self.get_sum_of_dead_nodes()
+        self.get_sum_of_energy()
+        self.new_state()
         self.add_nodes()
-        self.cluster_head_selection()
-        self.antenna_edges()
-        self.clustering()
-        self.energy_consumption()
+        if self.not_all_dead():
+            self.cluster_head_selection()
+            self.antenna_edges()
+            self.clustering()
+            self.energy_consumption()
+        
         pos = nx.get_node_attributes(self.graph, 'pos')
 
-        return nx.draw(self.graph, pos=pos, node_color=self.graph_df.color.tolist(), node_size=50)
+        color = self.graph_df.color.tolist()
+        return nx.draw(self.graph, pos=pos, node_color=color, node_size=50)
             
 
 

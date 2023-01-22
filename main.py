@@ -10,5 +10,9 @@ env = Environment(amount_of_nodes, number_of_rounds)
 if start:
     for i in range(number_of_rounds):
         st.title(f"Round {i+1}.")
+        print(f"round{i+1}")
         st.pyplot(env.draw_graph())
         st.dataframe(env.graph_df, width=10000)
+    st.pyplot(env.draw_tests_plot())
+else:
+    st.title("Leach Algorithm")
