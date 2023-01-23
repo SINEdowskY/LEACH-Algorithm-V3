@@ -199,12 +199,12 @@ class Environment:
         axs[0].set_title('amount of dead nodes per round')
         axs[0].set_xlabel("amount of rounds")
         axs[0].set_ylabel("amount of dead nodes")
-        axs[0].plot(x, y_dead)
+        axs[0].plot(x, y_dead, color="Blue")
 
         axs[1].set_title('amount of total energy per round')
         axs[1].set_xlabel("amount of rounds")
         axs[1].set_ylabel("amount of total energy")
-        axs[1].plot(x, y_energy)
+        axs[1].plot(x, y_energy, color="Orange")
 
         fig.tight_layout()
         return fig

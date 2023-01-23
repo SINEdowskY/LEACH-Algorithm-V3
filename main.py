@@ -13,6 +13,7 @@ if start:
         print(f"round{i+1}")
         st.pyplot(env.draw_graph())
         st.dataframe(env.graph_df, width=10000)
+    st.title("Tests")
     st.pyplot(env.draw_tests_plot())
 else:
     st.title("Leach Algorithm")
